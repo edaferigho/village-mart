@@ -371,6 +371,31 @@ alter table public.orders
   add column if not exists discount_amount integer not null default 0;
 
 -- ---------------------------------------------------------------------------
+-- 4. Product image uploads — Supabase Storage.
+--    Creates a PUBLIC bucket ("product-images") that the admin forms upload
+--    to; uploaded files are served from
+--    /storage/v1/object/public/product-images/<path>.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do nothing;
+
+-- Public read so storefront <img> tags can load uploaded images directly.
+drop policy if exists "Public read product images" on storage.objects;
+create policy "Public read product images" on storage.objects
+  for select using (bucket_id = 'product-images');
+
+-- Uploads happen from the admin server actions (app-gated; see note below).
+drop policy if exists "Public upload product images" on storage.objects;
+create policy "Public upload product images" on storage.objects
+  for insert with check (bucket_id = 'product-images');
+
+drop policy if exists "Public update product images" on storage.objects;
+create policy "Public update product images" on storage.objects
+  for update using (bucket_id = 'product-images')
+  with check (bucket_id = 'product-images');
+
+-- ---------------------------------------------------------------------------
 -- NOTE ON SECURITY (demo scope)
 -- The storefront talks to Supabase with the publishable key, so table-level
 -- RLS cannot distinguish "admin" from "customer" — every admin mutation is

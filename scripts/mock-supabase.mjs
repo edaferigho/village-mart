@@ -162,6 +162,16 @@ function shapeRow(row, select, table) {
 // ---------------------------------------------------------------------------
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
+
+  // ---- Storage (fake) — accepts any upload and echoes success -------------
+  if (url.pathname.startsWith("/storage/v1/object/") && req.method === "POST") {
+    for await (const _chunk of req) { /* drain the body */ }
+    const key = decodeURIComponent(url.pathname.replace("/storage/v1/object/", ""));
+    console.log(`[mock] STORAGE upload: ${key}`);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ Key: key }));
+  }
+
   const table = url.pathname.replace(/^\/rest\/v1\//, "");
   const wantsSingle = (req.headers.accept ?? "").includes("vnd.pgrst.object");
 

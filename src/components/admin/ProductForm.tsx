@@ -27,13 +27,22 @@ export default function ProductForm({
   // After a redirect the action returns no state — guard against undefined.
   const state = rawState ?? EMPTY;
   const [imageUrl, setImageUrl] = useState(product?.image_url ?? "");
+  // Local object-URL preview of a freshly chosen file (wins over imageUrl).
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const previewSrc = filePreview ?? (imageUrl || "/images/placeholder.svg");
 
   const priceValue = product?.price != null ? String(product.price) : "";
   const compareValue = product?.compare_at_price != null ? String(product.compare_at_price) : "";
 
   return (
     <form action={formAction} className="card max-w-3xl p-6">
-      {product && <input type="hidden" name="id" value={product.id} />}
+      {product && (
+        <>
+          <input type="hidden" name="id" value={product.id} />
+          {/* Existing slug rides along so uploaded images are namespaced by it */}
+          <input type="hidden" name="slug" value={product.slug} />
+        </>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
@@ -105,26 +114,48 @@ export default function ProductForm({
         </div>
 
         <div className="sm:col-span-2">
-          <label htmlFor="image_url" className="label">Image URL or path</label>
+          {/* Primary: upload an image file (goes to Supabase Storage) */}
+          <label htmlFor="image" className="label">Product image</label>
           <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <input
+                id="image"
+                name="image"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  // Revoke the previous preview to free memory
+                  if (filePreview) URL.revokeObjectURL(filePreview);
+                  setFilePreview(file ? URL.createObjectURL(file) : null);
+                }}
+                className="block w-full cursor-pointer rounded-lg border border-slate-300 bg-white text-sm text-slate-500 file:mr-3 file:cursor-pointer file:rounded-l-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-brand-700 hover:file:bg-brand-100"
+              />
+              <p className="mt-1.5 text-xs text-slate-400">
+                JPG, PNG, WebP or GIF · up to 5 MB. Uploaded to Supabase Storage automatically.
+              </p>
+            </div>
+            {/* Live preview: chosen file → pasted URL → existing image */}
+            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewSrc} alt="Preview" className="h-full w-full object-cover" />
+            </div>
+          </div>
+
+          {/* Secondary: paste an existing image path/URL instead */}
+          <details className="mt-3">
+            <summary className="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-700">
+              …or use an existing image URL instead
+            </summary>
             <input
-              id="image_url"
+              aria-label="Image URL"
               name="image_url"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
-              className="input"
-              placeholder="/images/products/my-product.jpg"
+              className="input mt-2"
+              placeholder="/images/products/existing-photo.jpg"
             />
-            {/* Live preview so bad paths are spotted before saving */}
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-              {imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={imageUrl} alt="Preview" className="h-full w-full object-cover" />
-              ) : (
-                <span className="flex h-full items-center justify-center text-[10px] text-slate-400">preview</span>
-              )}
-            </div>
-          </div>
+          </details>
         </div>
 
         <div className="sm:col-span-2">

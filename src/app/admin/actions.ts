@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseClient } from "@/lib/supabase";
 import { requireAdmin, AdminUnauthorizedError } from "@/lib/admin";
+import { uploadProductImage } from "@/lib/storage";
 
 /** Shared error/result type returned to the admin forms. */
 export interface ActionState {
@@ -93,6 +94,19 @@ const promoSchema = z.object({
 // Products
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve the product's image: an uploaded file wins over a pasted URL.
+ * Uploads go to Supabase Storage ("product-images" public bucket).
+ */
+async function resolveProductImage(formData: FormData, slug: string): Promise<string | null> {
+  const file = formData.get("image");
+  if (file instanceof File && file.size > 0) {
+    return uploadProductImage(file, slug);
+  }
+  const url = String(formData.get("image_url") ?? "").trim();
+  return url || null;
+}
+
 export async function createProduct(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     await requireAdmin();
@@ -101,6 +115,8 @@ export async function createProduct(_prev: ActionState, formData: FormData): Pro
     // Generate the slug from the name unless the admin supplied one.
     const slug = input.slug ? slugify(input.slug) : slugify(input.name);
     if (!slug) return { error: "Could not build a URL slug from that name" };
+
+    const imageUrl = await resolveProductImage(formData, slug);
 
     const supabase = createSupabaseClient();
     const { error } = await supabase.from("products").insert({
@@ -112,7 +128,7 @@ export async function createProduct(_prev: ActionState, formData: FormData): Pro
       unit_label: input.unit_label || null,
       price: input.price,
       compare_at_price: input.compare_at_price ?? null,
-      image_url: input.image_url || null,
+      image_url: imageUrl,
       badge: input.badge ? input.badge : null,
       rating: input.rating ?? null,
       sort_order: input.sort_order ?? 100,
@@ -140,6 +156,10 @@ export async function updateProduct(_prev: ActionState, formData: FormData): Pro
     const id = String(formData.get("id") ?? "");
     if (!id) return { error: "Missing product id" };
     const input = productSchema.parse(Object.fromEntries(formData));
+    // Edit form carries the product's existing slug (hidden field) so the
+    // uploaded image can be namespaced after it.
+    const slug = input.slug ? slugify(input.slug) : slugify(input.name);
+    const imageUrl = await resolveProductImage(formData, slug);
 
     const supabase = createSupabaseClient();
     const { error } = await supabase
@@ -152,7 +172,7 @@ export async function updateProduct(_prev: ActionState, formData: FormData): Pro
         unit_label: input.unit_label || null,
         price: input.price,
         compare_at_price: input.compare_at_price ?? null,
-        image_url: input.image_url || null,
+        image_url: imageUrl,
         badge: input.badge ? input.badge : null,
         rating: input.rating ?? null,
         sort_order: input.sort_order ?? 100,
