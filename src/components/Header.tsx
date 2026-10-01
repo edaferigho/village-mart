@@ -24,7 +24,7 @@ function Logo() {
           <path d="M9 13v4M12 13v4M15 13v4" strokeLinecap="round" />
         </svg>
       </span>
-      <span className="text-xl font-extrabold tracking-tight text-navy">
+      <span className="text-lg font-extrabold tracking-tight text-navy sm:text-xl">
         Village<span className="text-brand-600">Mart</span>
       </span>
     </Link>
@@ -103,7 +103,7 @@ export default function Header({ user, isAdmin }: { user: SessionUser | null; is
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="container-page flex h-16 items-center gap-6">
+      <div className="container-page flex h-16 items-center gap-3 sm:gap-6">
         <Logo />
 
         {/* Desktop navigation */}
@@ -122,7 +122,7 @@ export default function Header({ user, isAdmin }: { user: SessionUser | null; is
           )}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
           {/* Search (desktop) — submits to the shop page as ?q= */}
           <form action="/shop" className="hidden md:block">
             <div className="relative">
@@ -148,11 +148,13 @@ export default function Header({ user, isAdmin }: { user: SessionUser | null; is
             </div>
           </form>
 
-          {/* Account: avatar when signed in, user icon otherwise */}
+          {/* Account: avatar when signed in, user icon otherwise.
+              Hidden on <sm screens — the hamburger menu carries the
+              account link there, keeping the icon bar inside 320px. */}
           {user ? (
             <Link
               href="/account"
-              className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 transition hover:bg-slate-100"
+              className="hidden items-center gap-2 rounded-full py-1 pl-1 pr-3 transition hover:bg-slate-100 sm:flex"
               title={user.name}
             >
               {user.picture ? (
@@ -171,7 +173,7 @@ export default function Header({ user, isAdmin }: { user: SessionUser | null; is
           ) : (
             <Link
               href="/login"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-navy"
+              className="hidden h-10 w-10 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-navy sm:flex"
               title="Sign in"
             >
               <UserIcon />
@@ -233,6 +235,23 @@ export default function Header({ user, isAdmin }: { user: SessionUser | null; is
                 {link.label}
               </Link>
             ))}
+            {/* Account entry for <sm screens, where the header icon is hidden */}
+            <Link
+              href={user ? "/account" : "/login"}
+              onClick={() => setMobileOpen(false)}
+              className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {user ? "My Account" : "Sign in"}
+            </Link>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                onClick={() => setMobileOpen(false)}
+                className="block rounded-lg px-3 py-2 text-sm font-semibold text-navy hover:bg-slate-50"
+              >
+                Admin
+              </Link>
+            )}
           </div>
         </div>
       )}

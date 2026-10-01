@@ -42,17 +42,19 @@ export default function CartPage() {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
         {/* Line items */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {items.map((item) => (
-            <div key={item.productId} className="card flex gap-4 p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={item.imageUrl || "/images/placeholder.svg"}
-                alt={item.name}
-                className="h-20 w-20 shrink-0 rounded-lg object-cover"
-              />
-              <div className="flex flex-1 flex-col sm:flex-row sm:items-center sm:justify-between">
-                <div>
+            <div key={item.productId} className="card p-4 sm:flex sm:items-center sm:gap-4">
+              {/* Image + name stay side by side; on <sm the stepper row drops
+                  below them so the card never forces horizontal scroll. */}
+              <div className="flex min-w-0 gap-4 sm:flex-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={item.imageUrl || "/images/placeholder.svg"}
+                  alt={item.name}
+                  className="h-20 w-20 shrink-0 rounded-lg object-cover"
+                />
+                <div className="min-w-0 flex-1">
                   <Link
                     href={`/product/${item.slug}`}
                     className="text-sm font-bold text-navy hover:text-brand-600"
@@ -62,47 +64,47 @@ export default function CartPage() {
                   <p className="text-xs text-slate-500">{item.unitLabel}</p>
                   <p className="mt-1 text-sm font-semibold text-navy">{formatNaira(item.price)}</p>
                 </div>
+              </div>
 
-                <div className="mt-3 flex items-center gap-4 sm:mt-0">
-                  {/* Quantity stepper */}
-                  <div className="flex items-center rounded-lg border border-slate-300">
-                    <button
-                      type="button"
-                      onClick={() => setQuantity(item.productId, item.quantity - 1)}
-                      className="flex h-9 w-9 items-center justify-center text-slate-500 hover:text-navy"
-                      aria-label={`Decrease quantity of ${item.name}`}
-                    >
-                      −
-                    </button>
-                    <span className="w-9 border-x border-slate-300 text-center text-sm font-bold">
-                      {item.quantity}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setQuantity(item.productId, item.quantity + 1)}
-                      className="flex h-9 w-9 items-center justify-center text-slate-500 hover:text-navy"
-                      aria-label={`Increase quantity of ${item.name}`}
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  <div className="w-24 text-right text-sm font-extrabold text-navy">
-                    {formatNaira(item.price * item.quantity)}
-                  </div>
-
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3 sm:mt-0 sm:justify-end sm:border-0 sm:pt-0 sm:gap-4 sm:shrink-0">
+                {/* Quantity stepper */}
+                <div className="flex items-center rounded-lg border border-slate-300">
                   <button
                     type="button"
-                    onClick={() => removeItem(item.productId)}
-                    className="text-slate-400 transition hover:text-rose-600"
-                    aria-label={`Remove ${item.name} from cart`}
-                    title="Remove"
+                    onClick={() => setQuantity(item.productId, item.quantity - 1)}
+                    className="flex h-9 w-9 items-center justify-center text-slate-500 hover:text-navy"
+                    aria-label={`Decrease quantity of ${item.name}`}
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-                      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0-.8 12a2 2 0 0 1-2 1.9H8.8a2 2 0 0 1-2-1.9L6 7" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    −
+                  </button>
+                  <span className="w-9 border-x border-slate-300 text-center text-sm font-bold">
+                    {item.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(item.productId, item.quantity + 1)}
+                    className="flex h-9 w-9 items-center justify-center text-slate-500 hover:text-navy"
+                    aria-label={`Increase quantity of ${item.name}`}
+                  >
+                    +
                   </button>
                 </div>
+
+                <div className="w-20 text-right text-sm font-extrabold text-navy sm:w-24">
+                  {formatNaira(item.price * item.quantity)}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.productId)}
+                  className="text-slate-400 transition hover:text-rose-600"
+                  aria-label={`Remove ${item.name} from cart`}
+                  title="Remove"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                    <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m3 0-.8 12a2 2 0 0 1-2 1.9H8.8a2 2 0 0 1-2-1.9L6 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
               </div>
             </div>
           ))}
@@ -122,7 +124,7 @@ export default function CartPage() {
         </div>
 
         {/* Order summary */}
-        <aside className="card h-fit p-6 lg:sticky lg:top-24">
+        <aside className="card h-fit min-w-0 p-6 lg:sticky lg:top-24">
           <h2 className="text-lg font-extrabold text-navy">Order Summary</h2>
           <dl className="mt-4 space-y-2.5 text-sm">
             <div className="flex justify-between">

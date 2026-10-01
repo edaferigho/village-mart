@@ -236,7 +236,7 @@ export default function CheckoutPage() {
 
       <form onSubmit={handleSubmit} className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
         {/* ------------------------- left: form ------------------------- */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Section 1 — contact */}
           <section className="card p-6">
             <h2 className="flex items-center gap-2.5 text-lg font-extrabold text-navy">
@@ -369,7 +369,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* ----------------------- right: summary ----------------------- */}
-        <aside className="card h-fit p-6 lg:sticky lg:top-24">
+        <aside className="card h-fit min-w-0 p-6 lg:sticky lg:top-24">
           <h2 className="text-lg font-extrabold text-navy">Your Order</h2>
 
           <ul className="mt-4 divide-y divide-slate-100">
