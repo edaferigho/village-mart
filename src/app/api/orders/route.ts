@@ -32,7 +32,7 @@ const orderSchema = z.object({
     state: z.string().trim().min(2, "State is required").max(100),
     note: z.string().trim().max(500).optional().or(z.literal("")),
   }),
-  paymentMethod: z.enum(["pay_on_delivery", "bank_transfer"]),
+  paymentMethod: z.enum(["pay_on_delivery", "bank_transfer", "paystack"]),
   promoCode: z.string().trim().max(40).optional(),
   items: z
     .array(

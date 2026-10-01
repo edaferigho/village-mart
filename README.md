@@ -141,6 +141,17 @@ Every admin mutation is gated server-side (`src/lib/admin.ts` + `src/app/admin/a
 
 If you created the tables before the admin feature existed, run `supabase/migration-admin.sql` in the Supabase SQL editor (adds the `customers.is_admin` flag, the `promos` table and the order discount columns). Fresh installs get everything from `supabase/setup.sql`.
 
+## Payments (Paystack)
+
+Checkout offers three ways to pay: **Pay Online** (Paystack popup), **Pay on Delivery**, and manual **Bank Transfer**.
+
+- Choosing *Pay Online* saves the order, then opens the **Paystack popup** (inline.js v2) where the customer picks **Card**, **Bank Transfer**, USSD, etc.
+- Amounts are initialized **server-side** from the saved order (the client never sets prices), in kobo, with a unique per-attempt reference stored on the order (`orders.payment_reference`).
+- On success the order page re-verifies the transaction with Paystack (`/api/payments/verify`), marks the order **paid + confirmed** (`payment_status`, `paid_at`), and shows a paid banner. Unpaid Paystack orders get a **Complete Payment** button that reopens the popup anytime.
+- In Paystack **test mode**, complete the popup with the test helper (choose *Success*) or card `4084 0840 8408 4081`, any future expiry, CVV `408`, OTP `123456`.
+
+Required env vars: `PAYSTACK_SECRET_KEY` (server) and `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` (browser). Existing databases need `supabase/migration-paystack.sql` (adds `payment_reference`, `payment_status`, `paid_at`); fresh installs get it via `setup.sql`.
+
 ## Scripts
 
 ```bash

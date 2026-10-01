@@ -21,8 +21,9 @@ import { useCart } from "@/context/CartContext";
 import { deliveryFeeFor, formatNaira, amountToFreeDelivery, FREE_DELIVERY_THRESHOLD } from "@/lib/format";
 import { NIGERIAN_STATES, PAYMENT_METHOD_LABELS } from "@/lib/constants";
 import EmptyState from "@/components/EmptyState";
+import { payWithPaystack } from "@/lib/paystack-client";
 
-type PaymentMethod = "pay_on_delivery" | "bank_transfer";
+type PaymentMethod = "pay_on_delivery" | "bank_transfer" | "paystack";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -41,6 +42,8 @@ export default function CheckoutPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  // Set when a Paystack order was saved but the popup was closed without paying.
+  const [paystackNotice, setPaystackNotice] = useState<{ orderId: string } | null>(null);
 
   // ----- promo code state -------------------------------------------------
   const [promoInput, setPromoInput] = useState("");
@@ -132,9 +135,29 @@ export default function CheckoutPage() {
         throw new Error(body.error ?? "We couldn't place your order. Please try again.");
       }
 
-      // Success: empty the cart and show the confirmation page.
+      const orderId: string = body.id;
+
+      // Paystack orders: open the payment POPUP right after the order is
+      // saved. On success go to the confirmation (which re-verifies with
+      // Paystack); if the customer cancels, the order still exists and the
+      // order page offers a "Complete Payment" button.
+      if (form.paymentMethod === "paystack") {
+        try {
+          const reference = await payWithPaystack(orderId);
+          clearCart();
+          router.push(`/order/${orderId}?ref=${encodeURIComponent(reference)}`);
+          return;
+        } catch {
+          clearCart();
+          setPaystackNotice({ orderId });
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      // Non-Paystack flows: straight to the confirmation page.
       clearCart();
-      router.push(`/order/${body.id}`);
+      router.push(`/order/${orderId}`);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Something went wrong");
       setSubmitting(false);
@@ -146,8 +169,9 @@ export default function CheckoutPage() {
     return <div className="container-page py-16" aria-busy="true" />;
   }
 
-  // Nothing to check out.
-  if (items.length === 0) {
+  // Nothing to check out — unless a Paystack order was just saved with an
+  // incomplete payment, in which case we show the "finish payment" panel.
+  if (items.length === 0 && !paystackNotice) {
     return (
       <div className="container-page py-16">
         <h1 className="mb-8 text-3xl font-extrabold text-navy">Checkout</h1>
@@ -156,6 +180,28 @@ export default function CheckoutPage() {
           title="Nothing to check out"
           message="Your cart is empty — add some foodstuff first."
         />
+      </div>
+    );
+  }
+
+  // Order saved, popup closed without paying.
+  if (paystackNotice) {
+    return (
+      <div className="container-page py-16">
+        <div className="mx-auto max-w-md card p-8 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-2xl">
+            ⏳
+          </span>
+          <h1 className="mt-4 text-2xl font-extrabold text-navy">Order saved — payment pending</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Your order is safe, but the payment window closed before it was completed. Open your order
+            below and press <span className="font-semibold text-navy">Complete Payment</span> whenever
+            you&apos;re ready.
+          </p>
+          <Link href={`/order/${paystackNotice.orderId}`} className="btn-primary mt-6 w-full">
+            Go to my order &amp; pay
+          </Link>
+        </div>
       </div>
     );
   }
@@ -230,6 +276,34 @@ export default function CheckoutPage() {
               Payment Method
             </h2>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {/* Pay online with Paystack */}
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition sm:col-span-2 ${
+                form.paymentMethod === "paystack"
+                  ? "border-brand-600 bg-brand-50 ring-1 ring-brand-600"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}>
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="paystack"
+                  checked={form.paymentMethod === "paystack"}
+                  onChange={set("paymentMethod")}
+                  className="mt-1 accent-[#2563eb]"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-navy">
+                    Pay Online — Card or Bank Transfer
+                  </span>
+                  <span className="mt-0.5 block text-xs text-slate-500">
+                    Secure Paystack popup: choose Card, Bank Transfer, USSD and more.
+                  </span>
+                </span>
+                {/* Paystack wordmark */}
+                <span className="ml-auto self-center rounded-md bg-[#0aa5c2] px-2 py-1 text-[10px] font-extrabold tracking-wide text-white">
+                  paystack
+                </span>
+              </label>
+
               {/* Pay on delivery */}
               <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
                 form.paymentMethod === "pay_on_delivery"
@@ -250,7 +324,7 @@ export default function CheckoutPage() {
                 </span>
               </label>
 
-              {/* Bank transfer */}
+              {/* Manual bank transfer */}
               <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
                 form.paymentMethod === "bank_transfer"
                   ? "border-brand-600 bg-brand-50 ring-1 ring-brand-600"
@@ -373,7 +447,13 @@ export default function CheckoutPage() {
           )}
 
           <button type="submit" disabled={!formValid || submitting} className="btn-primary mt-5 w-full py-3">
-            {submitting ? "Placing order…" : `Place Order · ${formatNaira(total)}`}
+            {submitting
+              ? form.paymentMethod === "paystack"
+                ? "Opening Paystack…"
+                : "Placing order…"
+              : form.paymentMethod === "paystack"
+                ? `Pay ${formatNaira(total)} with Paystack`
+                : `Place Order · ${formatNaira(total)}`}
           </button>
           <p className="mt-3 text-center text-xs text-slate-400">
             By placing this order you agree to our terms. Payment method:{" "}

@@ -166,6 +166,14 @@ export default async function AdminDashboardPage() {
                   <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${status.className}`}>
                     {status.label}
                   </span>
+                  {order.payment_status === "paid" && (
+                    <span
+                      className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700"
+                      title="Paid via Paystack"
+                    >
+                      💳 Paid
+                    </span>
+                  )}
                   <span className="text-sm font-extrabold text-navy">{formatNaira(order.total)}</span>
                 </Link>
               );

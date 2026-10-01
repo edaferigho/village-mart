@@ -30,6 +30,7 @@ export const NIGERIAN_STATES = [
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   pay_on_delivery: "Pay on Delivery",
   bank_transfer: "Bank Transfer",
+  paystack: "Online Payment (Card / Transfer)",
 };
 
 /** Friendly labels + colors for order status chips. */

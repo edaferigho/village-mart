@@ -404,3 +404,22 @@ create policy "Public update product images" on storage.objects
 -- write). For a hardened production setup, move these writes behind
 -- Supabase Auth + service-role key or database functions with auth checks.
 -- ---------------------------------------------------------------------------
+
+
+-- Run in Supabase Dashboard → SQL Editor (paste the file's CONTENTS).
+-- Safe to re-run (idempotent).
+-- ============================================================================
+
+-- Payment tracking on orders:
+--   payment_reference : Paystack transaction reference (set when checkout
+--                       initializes a payment for the order)
+--   payment_status    : 'unpaid' | 'paid'
+--                       ('unpaid' for Pay-on-Delivery orders too)
+--   paid_at           : when the payment was confirmed via Paystack
+-- ---------------------------------------------------------------------------
+alter table public.orders
+  add column if not exists payment_reference text,
+  add column if not exists payment_status text not null default 'unpaid',
+  add column if not exists paid_at timestamptz;
+
+create index if not exists orders_payment_ref_idx on public.orders (payment_reference);

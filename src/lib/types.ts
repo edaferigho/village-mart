@@ -79,7 +79,10 @@ export interface Order {
   city: string;
   state: string;
   note: string | null;
-  payment_method: "pay_on_delivery" | "bank_transfer";
+  payment_method: "pay_on_delivery" | "bank_transfer" | "paystack";
+  payment_reference: string | null; // Paystack transaction reference
+  payment_status: "unpaid" | "paid";
+  paid_at: string | null;
   status: "pending" | "confirmed" | "delivered" | "cancelled";
   subtotal: number;
   discount_amount: number; // promo discount applied at purchase time

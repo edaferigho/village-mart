@@ -6,13 +6,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseClient, isMissingSchemaError } from "@/lib/supabase";
+import { verifyOrderPayment } from "@/lib/paystack";
 import { formatNaira } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS } from "@/lib/constants";
+import CompletePaymentButton from "@/components/CompletePaymentButton";
 import type { Order } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function OrderPage({ params }: { params: { id: string } }) {
+export default async function OrderPage({ params, searchParams }: {
+  params: { id: string };
+  searchParams?: { ref?: string };
+}) {
   const supabase = createSupabaseClient();
   const { data: order, error } = await supabase
     .from("orders")
@@ -25,8 +30,28 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
   }
   if (!order) notFound();
 
-  const typed = order as Order;
+  let typed = order as Order;
+
+  // Paystack orders that are still unpaid get re-checked with Paystack on
+  // every visit — so a customer returning from the popup (or refreshing
+  // later) is confirmed without needing a webhook.
+  if (typed.payment_method === "paystack" && typed.payment_status === "unpaid") {
+    try {
+      await verifyOrderPayment(typed);
+      const { data: fresh } = await supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .eq("id", params.id)
+        .maybeSingle();
+      if (fresh) typed = fresh as Order;
+    } catch (err) {
+      // Verification is best-effort — the page still renders unpaid state.
+      console.error("payment verification failed:", err);
+    }
+  }
+
   const items = typed.order_items ?? [];
+  const justPaid = typed.payment_status === "paid" && typed.paid_at != null;
 
   return (
     <div className="container-page py-14">
@@ -46,6 +71,27 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
             Order #{typed.order_number}
           </p>
         </div>
+
+        {/* Payment status */}
+        {typed.payment_method === "paystack" && (
+          justPaid ? (
+            <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+              💳 Payment received — {formatNaira(typed.total)} paid via Paystack
+              {typed.paid_at
+                ? ` on ${new Date(typed.paid_at).toLocaleString("en-NG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`
+                : ""}
+              {typed.payment_reference ? ` · Ref: ${typed.payment_reference}` : ""}. Your order is confirmed.
+            </div>
+          ) : (
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
+              <p className="text-sm font-medium text-amber-800">
+                ⏳ Payment pending — complete it securely below. The popup lets you pay with{" "}
+                <span className="font-semibold">Card</span> or <span className="font-semibold">Bank Transfer</span>.
+              </p>
+              <CompletePaymentButton orderId={typed.id} />
+            </div>
+          )
+        )}
 
         {/* Email delivery note */}
         <div className={`mt-6 rounded-xl border px-4 py-3 text-sm ${
