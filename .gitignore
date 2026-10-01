@@ -1,0 +1,26 @@
+# dependencies
+node_modules
+
+# next.js build output
+.next
+out
+
+# environment files (keep the example)
+.env*.local
+.env
+!.env.example
+
+# real credentials — never publish these
+API keys/
+
+# local test artifacts
+gui-test-screenshots/
+
+# logs & OS cruft
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

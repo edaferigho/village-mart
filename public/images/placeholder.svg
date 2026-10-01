@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="Product image placeholder">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eef4ff"/>
+      <stop offset="100%" stop-color="#dce7fd"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" fill="url(#bg)"/>
+  <g transform="translate(100 100)" fill="none" stroke="#94b8fa" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-46 -14 H46 L38 48 a10 10 0 0 1 -10 8 H-28 a10 10 0 0 1 -10 -8 Z"/>
+    <path d="M-22 -14 0 -46 22 -14"/>
+  </g>
+  <text x="100" y="178" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#618ff6">Village Mart</text>
+</svg>
