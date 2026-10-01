@@ -4,13 +4,16 @@
  * Sends order confirmation emails through the Mailgun REST API using the
  * credentials from "API keys/Mailgun keys.txt":
  *   API key        -> MAILGUN_API_KEY
- *   Sandbox domain -> MAILGUN_DOMAIN  (sandbox7b99....mailgun.org)
- *   Base URL       -> MAILGUN_BASE_URL (https://api.mailgun.net)
+ *   Sending domain -> MAILGUN_DOMAIN  (custom verified domain, e.g.
+ *                                     7thamenllc.com — delivers anywhere)
+ *   Base URL       -> MAILGUN_BASE_URL (https://api.mailgun.net, US region)
+ *   Optional from  -> MAILGUN_FROM    ("Village Mart <orders@…>", else
+ *                                     postmaster@ on the sending domain)
  *
- * NOTE: Mailgun sandbox domains can only deliver to *Authorized Recipients*
- * (configured in the Mailgun dashboard). If the recipient isn't authorized,
- * Mailgun rejects the send and we record `confirmation_email_sent = false`
- * on the order — the store keeps working either way.
+ * NOTE: sandbox domains can only deliver to *Authorized Recipients*; a
+ * verified custom domain has no such restriction. If a send fails anyway,
+ * we record `confirmation_email_sent = false` on the order — the store
+ * keeps working either way.
  */
 
 const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY ?? "";
@@ -41,8 +44,10 @@ export async function sendEmail(options: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        // Sandbox domains must send from an address on the sandbox domain itself.
-        from: `Village Mart <postmaster@${MAILGUN_DOMAIN}>`,
+        // Sender: MAILGUN_FROM override, else postmaster@ on the sending
+        // domain (works on sandboxes; on custom domains prefer a friendly
+        // address like orders@yourdomain.com via MAILGUN_FROM).
+        from: process.env.MAILGUN_FROM || `Village Mart <postmaster@${MAILGUN_DOMAIN}>`,
         to: options.to,
         subject: options.subject,
         html: options.html,
