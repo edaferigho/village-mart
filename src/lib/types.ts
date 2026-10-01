@@ -38,6 +38,21 @@ export interface Customer {
   email: string;
   full_name: string | null;
   avatar_url: string | null;
+  is_admin?: boolean;
+}
+
+/** A discount promo code managed from the admin dashboard. */
+export interface Promo {
+  id: string;
+  code: string;
+  type: "percent" | "fixed";
+  value: number; // percent (1–90) or fixed ₦ off
+  scope: "all" | "category" | "product";
+  scope_value: string | null; // category slug or product id when scoped
+  starts_at: string | null;
+  ends_at: string | null;
+  is_active: boolean;
+  usage_count: number;
 }
 
 /** One line of an order (snapshot of the product at purchase time). */
@@ -67,6 +82,8 @@ export interface Order {
   payment_method: "pay_on_delivery" | "bank_transfer";
   status: "pending" | "confirmed" | "delivered" | "cancelled";
   subtotal: number;
+  discount_amount: number; // promo discount applied at purchase time
+  promo_code: string | null;
   delivery_fee: number;
   total: number;
   confirmation_email_sent: boolean | null;

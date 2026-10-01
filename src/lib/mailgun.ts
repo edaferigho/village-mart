@@ -67,12 +67,14 @@ export function buildOrderConfirmationEmail(params: {
   customerName: string;
   items: { name: string; unitLabel: string | null; unitPrice: number; quantity: number; lineTotal: number }[];
   subtotal: number;
+  discountAmount: number;
+  promoCode: string | null;
   deliveryFee: number;
   total: number;
   delivery: { address: string; city: string; state: string; phone: string };
   paymentMethod: string;
 }): { html: string; text: string } {
-  const { orderNumber, customerName, items, subtotal, deliveryFee, total, delivery, paymentMethod } = params;
+  const { orderNumber, customerName, items, subtotal, discountAmount, promoCode, deliveryFee, total, delivery, paymentMethod } = params;
 
   // One <tr> per purchased item.
   const itemRows = items
@@ -112,6 +114,14 @@ export function buildOrderConfirmationEmail(params: {
             <td style="padding:10px 0;color:#475569;">Subtotal</td>
             <td style="padding:10px 0;text-align:right;color:#0f172a;">₦${subtotal.toLocaleString("en-NG")}</td>
           </tr>
+          ${
+            discountAmount > 0
+              ? `<tr>
+            <td style="padding:2px 0;color:#16a34a;">Promo discount${promoCode ? ` (${promoCode})` : ""}</td>
+            <td style="padding:2px 0;text-align:right;color:#16a34a;">−₦${discountAmount.toLocaleString("en-NG")}</td>
+          </tr>`
+              : ""
+          }
           <tr>
             <td style="padding:2px 0;color:#475569;">Delivery</td>
             <td style="padding:2px 0;text-align:right;color:#0f172a;">${deliveryFee === 0 ? "FREE" : `₦${deliveryFee.toLocaleString("en-NG")}`}</td>
@@ -146,6 +156,7 @@ export function buildOrderConfirmationEmail(params: {
     `Order #${orderNumber}`,
     ...items.map((i) => `- ${i.name}${i.unitLabel ? ` (${i.unitLabel})` : ""} x${i.quantity} = ₦${i.lineTotal.toLocaleString("en-NG")}`),
     `Subtotal: ₦${subtotal.toLocaleString("en-NG")}`,
+    discountAmount > 0 ? `Promo discount${promoCode ? ` (${promoCode})` : ""}: −₦${discountAmount.toLocaleString("en-NG")}` : "",
     `Delivery: ${deliveryFee === 0 ? "FREE" : `₦${deliveryFee.toLocaleString("en-NG")}`}`,
     `Total: ₦${total.toLocaleString("en-NG")}`,
     ``,

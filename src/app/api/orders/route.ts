@@ -16,6 +16,7 @@ import { createSupabaseClient, isMissingSchemaError } from "@/lib/supabase";
 import { getSessionUser } from "@/lib/auth";
 import { sendEmail, buildOrderConfirmationEmail, isMailgunConfigured } from "@/lib/mailgun";
 import { deliveryFeeFor } from "@/lib/format";
+import { validatePromoCode } from "@/lib/promos";
 import { PAYMENT_METHOD_LABELS } from "@/lib/constants";
 
 /** Payload shape sent by the checkout page. */
@@ -32,6 +33,7 @@ const orderSchema = z.object({
     note: z.string().trim().max(500).optional().or(z.literal("")),
   }),
   paymentMethod: z.enum(["pay_on_delivery", "bank_transfer"]),
+  promoCode: z.string().trim().max(40).optional(),
   items: z
     .array(
       z.object({
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
   const productIds = payload.items.map((i) => i.productId);
   const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("id, name, unit_label, price")
+    .select("id, name, unit_label, price, category_slug")
     .in("id", productIds);
 
   if (productsError) {
@@ -100,6 +102,7 @@ export async function POST(request: NextRequest) {
     unit_price: number;
     quantity: number;
     line_total: number;
+    category_slug: string;
   }[] = [];
   for (const item of payload.items) {
     const product = productMap.get(item.productId);
@@ -116,13 +119,31 @@ export async function POST(request: NextRequest) {
       unit_price: product.price,
       quantity: item.quantity,
       line_total: product.price * item.quantity,
+      category_slug: product.category_slug,
     });
   }
 
   // ---- 3. Compute totals (server-side source of truth) -------------------
   const subtotal = lines.reduce((sum, line) => sum + line.line_total, 0);
+
+  // Optional promo code — validated against the DB again right here, so a
+  // stale/expired code from the client can never apply a phantom discount.
+  let discountAmount = 0;
+  let appliedPromoCode: string | null = null;
+  if (payload.promoCode) {
+    const promoResult = await validatePromoCode(
+      payload.promoCode,
+      lines.map((l) => ({ product_id: l.product_id, category_slug: l.category_slug, line_total: l.line_total }))
+    );
+    if (!promoResult.ok) {
+      return NextResponse.json({ error: `Promo code: ${promoResult.error}` }, { status: 409 });
+    }
+    discountAmount = promoResult.discount;
+    appliedPromoCode = promoResult.promo.code;
+  }
+
   const deliveryFee = deliveryFeeFor(subtotal);
-  const total = subtotal + deliveryFee;
+  const total = Math.max(0, subtotal - discountAmount) + deliveryFee;
 
   // Attach the signed-in Google customer, if any.
   const sessionUser = await getSessionUser();
@@ -143,6 +164,8 @@ export async function POST(request: NextRequest) {
       payment_method: payload.paymentMethod,
       status: "pending",
       subtotal,
+      discount_amount: discountAmount,
+      promo_code: appliedPromoCode,
       delivery_fee: deliveryFee,
       total,
     })
@@ -166,11 +189,36 @@ export async function POST(request: NextRequest) {
   // ---- 5. Persist the line items (snapshot of prices at purchase time) ---
   const { error: itemsError } = await supabase
     .from("order_items")
-    .insert(lines.map((line) => ({ ...line, order_id: order.id })));
+    .insert(
+      lines.map((line) => ({
+        order_id: order.id,
+        product_id: line.product_id,
+        product_name: line.product_name,
+        unit_label: line.unit_label,
+        unit_price: line.unit_price,
+        quantity: line.quantity,
+        line_total: line.line_total,
+      }))
+    );
 
   if (itemsError) {
     // The order exists at this point; log loudly but don't fail the customer.
     console.error(`order_items insert failed for ${order.order_number}:`, itemsError.message);
+  }
+
+  // ---- 5b. Count promo usage (best-effort; never blocks the order) -------
+  if (appliedPromoCode) {
+    const { data: promoRow } = await supabase
+      .from("promos")
+      .select("id, usage_count")
+      .eq("code", appliedPromoCode)
+      .maybeSingle();
+    if (promoRow) {
+      await supabase
+        .from("promos")
+        .update({ usage_count: (promoRow.usage_count ?? 0) + 1 })
+        .eq("id", promoRow.id);
+    }
   }
 
   // ---- 6. Send the Mailgun confirmation email ----------------------------
@@ -188,6 +236,8 @@ export async function POST(request: NextRequest) {
         lineTotal: line.line_total,
       })),
       subtotal,
+      discountAmount,
+      promoCode: appliedPromoCode,
       deliveryFee,
       total,
       delivery: {

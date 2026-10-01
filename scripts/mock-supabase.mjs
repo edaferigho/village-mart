@@ -85,6 +85,7 @@ const db = {
   customers: [],
   orders: [],
   order_items: [],
+  promos: [],
   newsletter_subscribers: [],
 };
 

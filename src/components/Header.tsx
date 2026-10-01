@@ -97,7 +97,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export default function Header({ user }: { user: SessionUser | null }) {
+export default function Header({ user, isAdmin }: { user: SessionUser | null; isAdmin?: boolean }) {
   const { itemCount, isReady } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -111,6 +111,15 @@ export default function Header({ user }: { user: SessionUser | null }) {
           <Suspense fallback={null}>
             <NavLinks />
           </Suspense>
+          {/* Admin entry point — only rendered for admins */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="relative rounded-lg px-3 py-2 text-sm font-semibold text-navy transition hover:text-brand-600"
+            >
+              Admin
+            </Link>
+          )}
         </nav>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">

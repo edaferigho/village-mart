@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { CartProvider } from "@/context/CartContext";
 import { getSessionUser } from "@/lib/auth";
+import { getAdminUser } from "@/lib/admin";
 
 /**
  * Root layout — wraps every page with the store chrome:
@@ -20,14 +21,16 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // The signed session cookie is read on the server so the header can show
-  // the user's avatar/name right after a Google sign-in.
+  // the user's avatar/name right after a Google sign-in — and surface the
+  // Admin link only to store admins.
   const user = await getSessionUser();
+  const isAdmin = user ? (await getAdminUser()) !== null : false;
 
   return (
     <html lang="en">
       <body className="flex min-h-screen flex-col font-sans">
         <CartProvider>
-          <Header user={user} />
+          <Header user={user} isAdmin={isAdmin} />
           {/* flex-1 keeps the footer pinned to the bottom on short pages */}
           <main className="flex-1">{children}</main>
           <Footer />

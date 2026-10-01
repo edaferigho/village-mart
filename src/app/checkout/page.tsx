@@ -42,8 +42,42 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
+  // ----- promo code state -------------------------------------------------
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number; message: string } | null>(null);
+  const [promoStatus, setPromoStatus] = useState<"idle" | "checking" | "error">("idle");
+  const [promoError, setPromoError] = useState<string | null>(null);
+
   const deliveryFee = deliveryFeeFor(subtotal);
-  const total = subtotal + deliveryFee;
+  const discount = appliedPromo?.discount ?? 0;
+  const total = Math.max(0, subtotal - discount) + deliveryFee;
+
+  /** Ask the server to price the promo code against the current cart. */
+  const applyPromo = async () => {
+    if (!promoInput.trim() || promoStatus === "checking") return;
+    setPromoStatus("checking");
+    setPromoError(null);
+    try {
+      const res = await fetch("/api/promos/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: promoInput,
+          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) {
+        throw new Error(body.error ?? "That code didn't work");
+      }
+      setAppliedPromo({ code: body.code, discount: body.discount, message: body.message });
+      setPromoInput("");
+      setPromoStatus("idle");
+    } catch (err) {
+      setPromoError(err instanceof Error ? err.message : "That code didn't work");
+      setPromoStatus("error");
+    }
+  };
 
   /** Prefill contact details for signed-in shoppers. */
   useEffect(() => {
@@ -88,6 +122,7 @@ export default function CheckoutPage() {
           customer: { name: form.name, email: form.email, phone: form.phone },
           delivery: { address: form.address, city: form.city, state: form.state, note: form.note },
           paymentMethod: form.paymentMethod,
+          promoCode: appliedPromo?.code,
           items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
         }),
       });
@@ -265,6 +300,24 @@ export default function CheckoutPage() {
               <dt className="text-slate-500">Subtotal</dt>
               <dd className="font-semibold text-navy">{formatNaira(subtotal)}</dd>
             </div>
+            {appliedPromo && (
+              <div className="flex justify-between">
+                <dt className="flex items-center gap-2 text-emerald-700">
+                  Promo {appliedPromo.code}
+                  {/* Remove the applied code */}
+                  <button
+                    type="button"
+                    onClick={() => setAppliedPromo(null)}
+                    className="rounded-full px-1.5 text-xs text-slate-400 hover:text-rose-600"
+                    aria-label={`Remove promo code ${appliedPromo.code}`}
+                    title="Remove promo code"
+                  >
+                    ×
+                  </button>
+                </dt>
+                <dd className="font-semibold text-emerald-700">−{formatNaira(discount)}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-slate-500">Delivery fee</dt>
               <dd className="font-semibold text-navy">
@@ -276,6 +329,36 @@ export default function CheckoutPage() {
               <dd className="font-extrabold text-brand-600">{formatNaira(total)}</dd>
             </div>
           </dl>
+
+          {/* Promo code entry */}
+          {appliedPromo ? (
+            <p className="mt-4 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-xs font-medium text-emerald-800">
+              🎉 {appliedPromo.message} — you&apos;re saving {formatNaira(discount)} on this order.
+            </p>
+          ) : (
+            <div className="mt-4">
+              <div className="flex gap-2">
+                <input
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value)}
+                  placeholder="Promo code (e.g. JOLLOF10)"
+                  className="input min-w-0 flex-1 font-mono uppercase"
+                  aria-label="Promo code"
+                />
+                <button
+                  type="button"
+                  onClick={applyPromo}
+                  disabled={promoStatus === "checking" || !promoInput.trim()}
+                  className="btn-outline shrink-0 px-4 py-2.5 text-xs"
+                >
+                  {promoStatus === "checking" ? "…" : "Apply"}
+                </button>
+              </div>
+              {promoError && (
+                <p role="alert" className="mt-2 text-xs font-medium text-rose-600">{promoError}</p>
+              )}
+            </div>
+          )}
 
           {amountToFreeDelivery(subtotal) > 0 && (
             <p className="mt-4 rounded-lg bg-brand-50 px-3.5 py-2.5 text-xs font-medium text-brand-700">

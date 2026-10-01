@@ -116,6 +116,31 @@ Browser ──► Next.js pages (App Router)
 - Prices always come from the database, never the client payload.
 - Session cookies are `httpOnly`, `SameSite=Lax` and `Secure` in production.
 
+## Admin dashboard
+
+Visit `/admin` (an **Admin** link appears in the header for admins). Features:
+
+- **Dashboard** — revenue / orders / units sold / active promos KPIs, **best-sellers** ranking (units + revenue bars) and the recent-orders feed.
+- **Products** — add, edit and delete products: name, brand, category, pack size, **selling price**, **original price** (creates the strikethrough discount + SALE treatment on the storefront), badge, rating, image URL (with live preview) and display order.
+- **Categories** — add, edit and delete shop categories (deleting removes its products; slugs cascade to products).
+- **Promos** — create discount codes (`% off` or flat `₦ off`) scoped to everything / a category / a product, with optional start & end dates, plus pause / resume / delete. Shoppers apply codes at checkout; the discount is re-validated server-side at order time and stored on the order.
+
+### Becoming an admin
+
+Admin access requires a Google sign-in plus one of:
+
+1. **SQL promote** — after signing in once, run in Supabase SQL Editor:
+   ```sql
+   update customers set is_admin = true where email = 'you@example.com';
+   ```
+2. **Environment allow-list** — add `ADMIN_EMAILS=you@example.com,other@x.com` in Vercel → Settings → Environment Variables and redeploy.
+
+Every admin mutation is gated server-side (`src/lib/admin.ts` + `src/app/admin/actions.ts`); the database alone cannot enforce admin rights because the storefront writes with the publishable key (demo-grade RLS — see notes above).
+
+### Applying this feature to an existing database
+
+If you created the tables before the admin feature existed, run `supabase/migration-admin.sql` in the Supabase SQL editor (adds the `customers.is_admin` flag, the `promos` table and the order discount columns). Fresh installs get everything from `supabase/setup.sql`.
+
 ## Scripts
 
 ```bash

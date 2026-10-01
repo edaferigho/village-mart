@@ -81,6 +81,14 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
               <dt className="text-slate-500">Subtotal</dt>
               <dd className="font-semibold text-navy">{formatNaira(typed.subtotal)}</dd>
             </div>
+            {(typed.discount_amount ?? 0) > 0 && (
+              <div className="flex justify-between">
+                <dt className="text-emerald-700">
+                  Promo discount{typed.promo_code ? ` (${typed.promo_code})` : ""}
+                </dt>
+                <dd className="font-semibold text-emerald-700">−{formatNaira(typed.discount_amount)}</dd>
+              </div>
+            )}
             <div className="flex justify-between">
               <dt className="text-slate-500">Delivery fee</dt>
               <dd className="font-semibold text-navy">
