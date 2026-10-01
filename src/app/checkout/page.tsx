@@ -25,6 +25,23 @@ import { payWithPaystack } from "@/lib/paystack-client";
 
 type PaymentMethod = "pay_on_delivery" | "bank_transfer" | "paystack";
 
+/**
+ * Best-effort: ask the server to verify the Paystack payment right away.
+ * Never throws — the order page verifies again on load, and its background
+ * poller corrects any miss within a few seconds.
+ */
+async function confirmPayment(orderId: string): Promise<void> {
+  try {
+    await fetch("/api/payments/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId }),
+    });
+  } catch {
+    // ignore — verification also happens on the order page itself
+  }
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, subtotal, isReady, clearCart } = useCart();
@@ -144,6 +161,10 @@ export default function CheckoutPage() {
       if (form.paymentMethod === "paystack") {
         try {
           const reference = await payWithPaystack(orderId);
+          // Confirm the payment server-side BEFORE navigating, so the order
+          // page renders "Payment received" instead of a brief "Payment
+          // pending" flash while Paystack's API catches up.
+          await confirmPayment(orderId);
           clearCart();
           router.push(`/order/${orderId}?ref=${encodeURIComponent(reference)}`);
           return;

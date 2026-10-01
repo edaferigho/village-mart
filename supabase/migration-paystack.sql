@@ -17,3 +17,14 @@ alter table public.orders
   add column if not exists paid_at timestamptz;
 
 create index if not exists orders_payment_ref_idx on public.orders (payment_reference);
+
+-- ---------------------------------------------------------------------------
+-- IMPORTANT: widen the payment_method CHECK constraint to allow 'paystack'.
+-- Tables created before Paystack support only allow 'pay_on_delivery' and
+-- 'bank_transfer', which makes every Paystack checkout fail to save.
+-- ---------------------------------------------------------------------------
+alter table public.orders
+  drop constraint if exists orders_payment_method_check;
+alter table public.orders
+  add constraint orders_payment_method_check
+  check (payment_method in ('pay_on_delivery', 'bank_transfer', 'paystack'));

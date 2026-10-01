@@ -10,6 +10,7 @@ import { verifyOrderPayment } from "@/lib/paystack";
 import { formatNaira } from "@/lib/format";
 import { PAYMENT_METHOD_LABELS } from "@/lib/constants";
 import CompletePaymentButton from "@/components/CompletePaymentButton";
+import PendingPaymentPoller from "@/components/PendingPaymentPoller";
 import type { Order } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -89,6 +90,7 @@ export default async function OrderPage({ params, searchParams }: {
                 <span className="font-semibold">Card</span> or <span className="font-semibold">Bank Transfer</span>.
               </p>
               <CompletePaymentButton orderId={typed.id} />
+              <PendingPaymentPoller orderId={typed.id} />
             </div>
           )
         )}
@@ -101,7 +103,7 @@ export default async function OrderPage({ params, searchParams }: {
         }`}>
           {typed.confirmation_email_sent
             ? `📬 A confirmation email is on its way to ${typed.customer_email}.`
-            : `⚠️ We saved your order but couldn't email ${typed.customer_email}. Mailgun sandbox domains only deliver to Authorized Recipients — add that address in your Mailgun dashboard to receive confirmations.`}
+            : `⚠️ We saved your order, but the confirmation email to ${typed.customer_email} couldn't be delivered at the time. Your order itself is confirmed and our team can see it — this notice stays on orders placed while email was unavailable.`}
         </div>
 
         {/* Order summary card */}
