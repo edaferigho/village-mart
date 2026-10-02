@@ -86,6 +86,8 @@ const db = {
   orders: [],
   order_items: [],
   promos: [],
+  cart_items: [],
+  pairing_codes: [],
   newsletter_subscribers: [],
 };
 
@@ -138,15 +140,20 @@ function applyFilter(rows, key, rawValue) {
 /** Pick only the columns requested in ?select= (supports `*` and embeds). */
 function shapeRow(row, select, table) {
   if (!select || select === "*") {
-    // Expand the one embed the app uses: order_items(*) on orders.
+    // Expand the embeds the app uses.
     const base = { ...row };
     if (table === "orders") base.order_items = db.order_items.filter((i) => i.order_id === row.id);
+    if (table === "cart_items") {
+      base.product = db.products.find((p) => p.id === row.product_id) ?? null;
+    }
     return base;
   }
   const cols = select.split(",").map((c) => c.trim());
   const out = {};
   for (const col of cols) {
-    if (col === "order_items(*)" || col === "order_items") {
+    if (col.startsWith("product:") || col === "product") {
+      out.product = db.products.find((p) => p.id === row.product_id) ?? null;
+    } else if (col === "order_items(*)" || col === "order_items") {
       out.order_items = db.order_items.filter((i) => i.order_id === row.id);
     } else if (col === "*") {
       Object.assign(out, row);
@@ -189,7 +196,33 @@ const server = createServer(async (req, res) => {
     const body = [];
     for await (const chunk of req) body.push(chunk);
     const items = JSON.parse(body.join(""));
-    const inserted = (Array.isArray(items) ? items : [items]).map((item) => ({
+    const incoming = Array.isArray(items) ? items : [items];
+
+    if (table === "cart_items") {
+      // Emulate the real unique(owner_key, product_id) upsert: merge quantities.
+      for (const item of incoming) {
+        const existing = rows.find(
+          (r) => r.owner_key === item.owner_key && r.product_id === item.product_id
+        );
+        if (existing) {
+          existing.quantity = item.quantity;
+          existing.updated_at = new Date().toISOString();
+        } else {
+          rows.push({
+            id: randomUUID(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            ...item,
+          });
+        }
+      }
+      const shaped = rows.map((r) => shapeRow(r, select, table));
+      console.log(`[mock] UPSERT ${table}: ${incoming.length} row(s)`);
+      res.writeHead(201, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify(wantsSingle ? shaped[0] : shaped));
+    }
+
+    const inserted = incoming.map((item) => ({
       id: randomUUID(),
       created_at: new Date().toISOString(),
       ...item,
@@ -239,6 +272,19 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     const shaped = result.map((r) => shapeRow(r, select, table));
     return res.end(JSON.stringify(wantsSingle ? shaped[0] ?? null : shaped));
+  }
+
+  // ---- DELETE -------------------------------------------------------------
+  if (req.method === "DELETE") {
+    let matched = rows;
+    for (const [key, value] of params) {
+      if (key === "select") continue;
+      matched = applyFilter(matched, key, value);
+    }
+    db[table] = rows.filter((r) => !matched.includes(r));
+    console.log(`[mock] DELETE ${table}: ${matched.length} row(s)`);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify(matched.map((r) => shapeRow(r, select, table))));
   }
 
   res.writeHead(405);

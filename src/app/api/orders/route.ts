@@ -183,6 +183,19 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error("order insert failed:", orderError?.message);
+    // Check-constraint violations mean the live table predates a migration
+    // (e.g. payment_method CHECK without 'paystack') — tell the user exactly
+    // which SQL file fixes it instead of a dead-end 500.
+    if (orderError?.code === "23514" || /check constraint/i.test(orderError?.message ?? "")) {
+      return NextResponse.json(
+        {
+          error:
+            "This order couldn't be saved because the orders table predates a migration. " +
+            "Run supabase/migration-paystack.sql (and supabase/migration-admin.sql) in the Supabase SQL editor, then retry.",
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json({ error: "Could not save your order. Please try again." }, { status: 500 });
   }
 

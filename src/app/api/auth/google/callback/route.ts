@@ -17,6 +17,7 @@ import {
   createSessionToken,
 } from "@/lib/auth";
 import { createSupabaseClient } from "@/lib/supabase";
+import { mergeDeviceCartIntoUserCart, DEVICE_COOKIE } from "@/lib/cart-owner";
 
 export async function GET(request: NextRequest) {
   const origin = request.nextUrl.origin;
@@ -89,6 +90,17 @@ export async function GET(request: NextRequest) {
     }
 
     // -- 5. Issue the signed session cookie. --------------------------------
+    // Bring the guest (device) cart along so nothing added before signing in
+    // is lost — the same cart then follows the account to the mobile app.
+    const deviceId = request.cookies.get(DEVICE_COOKIE)?.value;
+    if (deviceId && /^[\w-]{8,64}$/.test(deviceId)) {
+      try {
+        await mergeDeviceCartIntoUserCart(deviceId, customerId);
+      } catch (mergeErr) {
+        console.error("device cart merge failed:", mergeErr);
+      }
+    }
+
     const sessionToken = await createSessionToken({
       id: customerId,
       email: profile.email,

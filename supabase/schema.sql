@@ -69,7 +69,7 @@ create table if not exists public.orders (
   city                     text not null,
   state                    text not null,
   note                     text,
-  payment_method           text not null check (payment_method in ('pay_on_delivery', 'bank_transfer')),
+  payment_method           text not null check (payment_method in ('pay_on_delivery', 'bank_transfer', 'paystack')),
   status                   text not null default 'pending'
                              check (status in ('pending', 'confirmed', 'delivered', 'cancelled')),
   -- Money totals in whole Naira (recomputed server-side, never trusted from client)
