@@ -141,6 +141,30 @@ Every admin mutation is gated server-side (`src/lib/admin.ts` + `src/app/admin/a
 
 If you created the tables before the admin feature existed, run `supabase/migration-admin.sql` in the Supabase SQL editor (adds the `customers.is_admin` flag, the `promos` table and the order discount columns). Fresh installs get everything from `supabase/setup.sql`.
 
+## Mobile app (`mobile/`)
+
+A **React Native (Expo)** Android app that talks to the **same deployed backend API** as the website:
+
+- **One account everywhere** — sign-in is by *device pairing*: on the website go to **My Orders → "Connect the mobile app"** to get a 6-digit code, enter it in the app's Account tab, and the backend issues the same session token (same orders, same cart). Guests can shop first and pair later; their cart merges into the account automatically.
+- **One cart everywhere** — carts live server-side (`cart_items` in Supabase, owner-keyed). The website and the app both write through to `/api/cart`; incoming changes arrive via **Supabase Realtime** (instant) with a poll + focus-refresh fallback, so adding an item on the website shows it in the app within seconds — no refresh needed.
+- Screens: Shop (catalog, search, categories, pull-to-refresh), Cart (live sync badge, quantity steppers, checkout with Pay on Delivery), Orders (history + paid status), Account (pairing, sign out).
+
+### Build the APK
+
+```bash
+cd mobile
+npm install
+npx expo prebuild -p android        # generates android/
+cd android && ./gradlew assembleRelease
+# → android/app/build/outputs/apk/release/app-release.apk
+```
+
+Requires JDK 17 and an Android SDK (`ANDROID_HOME`). `mobile/android` already carries a release signing config (`app/keystore/village-mart-release.keystore`, password `villagemart2026`) — replace it with your own for production. The app's backend URL is set in `mobile/.env` (`EXPO_PUBLIC_API_URL`).
+
+### Applying this feature to an existing database
+
+Run `supabase/migration-mobile.sql` in the Supabase SQL editor — creates `cart_items` (+ realtime publication) and `pairing_codes`. Fresh installs get everything from `setup.sql`.
+
 ## Payments (Paystack)
 
 Checkout offers three ways to pay: **Pay Online** (Paystack popup), **Pay on Delivery**, and manual **Bank Transfer**.
