@@ -26,3 +26,6 @@ Thumbs.db
 next-env.d.ts
 
 .vercel
+
+# built android app
+village-mart.apk
